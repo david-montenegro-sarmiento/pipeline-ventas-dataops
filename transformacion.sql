@@ -1,1 +1,1 @@
-select * from ventas_raw;
+SELECT * FROM ventas_raw;
