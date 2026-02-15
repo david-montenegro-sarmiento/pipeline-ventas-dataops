@@ -1,1 +1,1 @@
-Select * From Ventas_raw;
+select * from ventas_raw;
