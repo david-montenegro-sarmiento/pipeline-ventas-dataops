@@ -27,7 +27,12 @@ pipeline {
             archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
         }
         always {
-            sh 'docker rm -f ejecucion_reporte' // Limpia el contenedor
+            // Esta instrucción extrae el Excel del contenedor aunque el correo falle
+            sh 'docker cp dataops_app:/app/ComisionesCalculadas.xlsx .' 
+            // Esta instrucción publica el archivo en la interfaz de Jenkins
+            archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
+            // Limpieza del contenedor
+            sh 'docker rm -f dataops_app'
         }
     }
 } 
