@@ -30,4 +30,4 @@ pipeline {
             sh 'docker rm -f ejecucion_reporte' // Limpia el contenedor
         }
     }
-}
+} 
