@@ -1,38 +1,49 @@
 pipeline {
-    agent { label 'AgenteDocker' } // Usa tu nodo configurado
+  agent any
+  environment {
+    IMAGE = "registry.example.com/dataops/comisiones:${env.BUILD_NUMBER}"
+  }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm // Descarga el código de GitHub
-            }
-        }
-        stage('Build Image') {
-            steps {
-                sh 'docker build -t reporte-app .' // Construye usando tu Dockerfile
-            }
-        }
-        stage('Run & Generate') {
-            steps {
-                // Ejecuta el contenedor y genera el Excel
-                sh 'docker run --name ejecucion_reporte reporte-app'
-            }
-        }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
     }
-    post {
-        success {
-            // Extrae el artefacto del contenedor al espacio de Jenkins
-            sh 'docker cp ejecucion_reporte:/app/ComisionesCalculadas.xlsx .'
-            // Publica el archivo para que aparezca el botón de descarga
-            archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
-        }
-        always {
-            // Esta instrucción extrae el Excel del contenedor aunque el correo falle
-            sh 'docker cp dataops_app:/app/ComisionesCalculadas.xlsx .' 
-            // Esta instrucción publica el archivo en la interfaz de Jenkins
-            archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
-            // Limpieza del contenedor
-            sh 'docker rm -f dataops_app'
-        }
+
+    stage('Build') {
+      steps {
+        sh 'docker build -t $IMAGE .'
+      }
     }
-} 
+
+    stage('Test job') {
+      steps {
+        sh '''
+          docker run --rm \
+            -v $WORKSPACE/config.json:/app/config.json:ro \
+            -v $WORKSPACE/data:/app/data:ro \
+            $IMAGE
+        '''
+      }
+    }
+
+    stage('Push image') {
+      when { branch 'main' }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'registry-creds',
+                                          usernameVariable: 'REG_USER',
+                                          passwordVariable: 'REG_PASS')]) {
+          sh '''
+            echo $REG_PASS | docker login registry.example.com -u $REG_USER --password-stdin
+            docker push $IMAGE
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
+    }
+  }
+}
